@@ -29,8 +29,9 @@ void write_to_file(STRIP strip, char *filename)
     }
 }
 
-void print_params(PARAMS params)
+void print_params(char *type, PARAMS params)
 {
+    printf("=== %s ===\n", type);
     printf("=== PARAMS ===\n");
     printf("npoints: %d\n", params.npoints);
     printf("startval: %f\n", params.startval);
@@ -50,9 +51,10 @@ void print_strip(STRIP strip)
     printf("========================\n");
 }
 
-STRIP natural_exponential_decay(PARAMS params){
+STRIP natural_exponential_decay(PARAMS params)
+{
     // x = ae^(kT)
-    print_params(params);
+    print_params("natural_exp", params);
     double n = params.npoints;
     double T = params.duration;
     double step = T / n;
@@ -69,7 +71,7 @@ STRIP natural_exponential_decay(PARAMS params){
     for (int i = 0; i <= params.npoints; i++)
     {
         points[i] = t;
-        //scaled values
+        // scaled values
         values[i] = params.endval + decay * range;
         t += step;
         decay *= ratio;
@@ -81,7 +83,7 @@ STRIP natural_exponential_decay(PARAMS params){
 
 STRIP linear(PARAMS params)
 {
-    print_params(params);
+    print_params("linear", params);
     double step = params.duration / params.npoints;
     double start = params.startval;
     double diff = (params.endval - params.startval) / params.npoints;
@@ -98,6 +100,30 @@ STRIP linear(PARAMS params)
     }
 
     STRIP result = {params.npoints + 1, points, values};
+    return result;
+}
+
+STRIP step(PARAMS params, int step_count)
+{
+    print_params("STEP", params);
+    double T = params.duration;
+    double n = params.npoints;
+
+    double step_size = (params.endval - params.startval) / step_count;
+    double step_length = n / step_count;
+
+    double *points = (double *)malloc((params.npoints + 1) * sizeof(double));
+    double *values = (double *)malloc((params.npoints + 1) * sizeof(double));
+
+    double t = 0;
+
+    for (int i = 0; i <= n; i++)
+    {
+        points[i] = t;
+        values[i] = params.startval + ceil(i / step_length) * step_size;
+        t += T / n;
+    }
+    STRIP result = {n + 1, points, values};
     return result;
 }
 
@@ -126,7 +152,7 @@ STRIP add_strips(STRIP strip1, STRIP strip2)
 int main(int arc, char **argv)
 {
     PARAMS params1 = {
-        100,
+        5,
         0,
         1,
         10};
@@ -137,18 +163,25 @@ int main(int arc, char **argv)
         0,
         30};
     STRIP linear2 = linear(params2);
-    STRIP combined_strip = add_strips(linear1, linear2);
     PARAMS params3 = {200, 0, 0.5, 50};
     STRIP linear3 = linear(params3);
 
-
-    combined_strip = add_strips(combined_strip, linear3);
     PARAMS nd1 = {
         200,
         0.5,
         0,
         30};
     STRIP n_decay = natural_exponential_decay(nd1);
+    PARAMS stp1 = {
+        200,
+        0,
+        1,
+        10};
+    STRIP stp = step(stp1, 5);
+    STRIP combined_strip;
+    combined_strip = add_strips(linear1, linear2);
+    combined_strip = add_strips(combined_strip, linear3);
     combined_strip = add_strips(combined_strip, n_decay);
+    combined_strip = add_strips(combined_strip, stp);
     write_to_file(combined_strip, "strip.bpf");
 }
